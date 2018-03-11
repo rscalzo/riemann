@@ -31,10 +31,29 @@ class Proposal(object):
         propose:  draw from proposal distribution
         mhratio:  compute asymmetry of proposal density btwn two states
             (taking possible proposal asymmetries into account)
-        accept:  evaluate Metropolis-Hastings criterion
     """
 
-    pass
+    def __init__(self):
+        pass
+
+    def propose(self, theta, dtheta=None):
+        """
+        Given a state theta, compute a new state theta'.
+        :param theta:  parameter vector specifying Model's current state
+        :param dtheta:  derivatives of Model around current theta value
+        :return theta_p:  proposed new parameter vector for Model
+        """
+        pass
+
+    def mhratio(self, theta1, theta2):
+        """
+        Computes log ratio of proposal density function between the two
+        states theta1 and theta2.
+        :param theta1:  parameter vector of state 1
+        :param theta2:  parameter vector of state 2
+        :return logqr:  log(q(theta2|theta1)/q(theta1|theta2))
+        """
+        pass
 
 
 class Model(object):
@@ -47,4 +66,51 @@ class Model(object):
         eval:  evaluates the Model, with options to compute derivatives
     """
 
-    pass
+    def __init__(self):
+        pass
+
+    def load_data(self, data):
+        """
+        Initializer for a dataset.
+        """
+        pass
+
+    def pack(self):
+        """
+        Optional:  Compute parameter vector from Model's internal state.
+        """
+        pass
+
+    def unpack(self, theta):
+        """
+        Optional:  Compute Model's internal state from parameter vector.
+        """
+        pass
+
+    def log_likelihood(self, theta):
+        """
+        Log likelihood of the Model given a parameter vector theta.
+        Assumes self.load_data() has been called.
+        """
+        pass
+
+    def log_prior(self, theta):
+        """
+        Log prior of the Model given a parameter vector theta.
+        """
+        pass
+
+    def log_posterior(self, theta):
+        """
+        (Unnormalized) log posterior given a parameter vector theta.
+        """
+        pass
+
+    def logL(self, theta):
+        return self.log_likelihood(theta)
+
+    def logP(self, theta):
+        return self.log_prior(theta)
+
+    def __call__(self, theta):
+        return self.log_posterior(theta)
