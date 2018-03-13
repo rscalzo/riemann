@@ -41,9 +41,10 @@ class Proposal(object):
         Given a state theta, compute a new state theta'.
         :param theta:  parameter vector specifying Model's current state
         :param dtheta:  derivatives of Model around current theta value
-        :return theta_p:  proposed new parameter vector for Model
+        :return theta_p:  proposed new parameter vector q(theta'|theta)
+        :return mhratio:  log(q(theta'|theta)/q(theta|theta')) 
         """
-        pass
+        return theta, 1.0
 
     def mhratio(self, theta1, theta2):
         """
