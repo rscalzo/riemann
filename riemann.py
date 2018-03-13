@@ -61,17 +61,7 @@ class Proposal(object):
         :return theta_p:  proposed new parameter vector q(theta'|theta)
         :return mhratio:  log(q(theta'|theta)/q(theta|theta')) 
         """
-        return theta, 1.0
-
-    def mhratio(self, theta1, theta2):
-        """
-        Computes log ratio of proposal density function between the two
-        states theta1 and theta2.
-        :param theta1:  parameter vector of state 1
-        :param theta2:  parameter vector of state 2
-        :return logqr:  log(q(theta2|theta1)/q(theta1|theta2))
-        """
-        pass
+        raise NotImplementedError("Non-overloaded abstract method!")
 
 
 class Model(object):
@@ -91,7 +81,7 @@ class Model(object):
         """
         Initializer for a dataset.
         """
-        pass
+        raise NotImplementedError("Non-overloaded abstract method!")
 
     def pack(self):
         """
@@ -110,13 +100,13 @@ class Model(object):
         Log likelihood of the Model given a parameter vector theta.
         Assumes self.load_data() has been called.
         """
-        pass
+        raise NotImplementedError("Non-overloaded abstract method!")
 
     def log_prior(self, theta):
         """
         Log prior of the Model given a parameter vector theta.
         """
-        pass
+        raise NotImplementedError("Non-overloaded abstract method!")
 
     def log_posterior(self, theta):
         """
