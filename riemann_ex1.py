@@ -48,13 +48,17 @@ class pCN(Proposal):
         self.rho = rho
 
     def propose(self, theta):
+        # proposal theta'
         xi = np.random.normal(size=theta.shape)
-        theta_p = rho*theta + np.sqrt(1-rho**2)*np.dot(self.L, xi)
-        # proposal density ratio
+        theta_p = self.rho*theta + np.sqrt(1-self.rho**2)*np.dot(self.L, xi)
+        # proposal density ratio q(theta'|theta)/q(theta|theta')
+        dtheta_fwd = theta_p - self.rho*theta
+        dtheta_rev = theta - self.rho*theta_p
+        u_fwd = np.linalg.solve(self.L, dtheta_fwd)
+        u_rev = np.linalg.solve(self.L, dtheta_rev)
+        logqratio = -0.5*(np.dot(u_fwd, u_fwd) - np.dot(u_rev, u_rev))
 
-
-        # finish this later, it'll be a bit trickier
-        return theta, 1.0
+        return theta, logqratio
 
 
 class UniGaussian(Model):
