@@ -34,17 +34,48 @@ class Sampler(object):
     sample the Model using the Proposal.
     """
 
-    def run(self, model, proposal, Nburn=0, Nthin=1):
+    def __init__(self, model, proposal, data, theta0):
         """
-        Run the sampler.
+        Initialize a Sampler with a model, a proposal, data, and a guess
+        at some reasonable starting parameters.
         """
-        pass
+        self.model = model
+        self.proposal = proposal
+        self.model.load_data(data)
+        self._chain_thetas = [ theta0 ]
+        self._chain_logPs = [ model.log_posterior(theta) ]
 
-    def sample(self, model, proposal):
+    def run(self, model, proposal, Nsamples, Nburn=0, Nthin=1):
         """
-        Draw a single sample from the MCMC chain.
+        Run the Sampler.
         """
-        pass
+        # Burn in chain; throw away samples, we don't care about them
+        self._chain_thetas = self._chain_thetas[-1:]
+        self._chain_logPs = self._chain_logPs[-1:]
+        for i in range(Nburn):
+            theta, logpost = self.sample()
+        # Reset and sample chain, keeping every Nthin-th sample
+        self._chain_thetas = self._chain_thetas[-1:]
+        self._chain_logPs = self._chain_logPs[-1:]
+        for i in range(Nsamples):
+            theta, logpost = self.sample()
+            if i % Nthin = 0:
+                self._chain_thetas.append(theta)
+                self._chain_logPs.append(logpost)
+
+    def sample(self):
+        """
+        Draw a single sample from the MCMC chain, and accept or reject
+        using the Metropolis-Hastings criterion.
+        """
+        theta_old = self._chain_thetas[-1]
+        theta_prop, logqratio = self.proposal.propose(theta_old)
+        logpost = self.model.log_posterior(theta_prop)
+        mhratio = min(1, np.exp(logpost + logqratio))
+        if np.random.uniform() < mhratio:
+            return theta_prop, logpost
+        else:
+            return theta_new, logpost
 
     def acor(self):
         """
@@ -57,8 +88,7 @@ class Proposal(object):
     """
     A class associated with MCMC proposals.  Given a Model and the state
     of the chain, propose the next state.  Supports Models with and/or
-    without derivative information.  Supported methods:
-        propose:  draw from proposal distribution
+    without derivative information.
     """
 
     def __init__(self):
@@ -70,7 +100,7 @@ class Proposal(object):
         :param theta:  parameter vector specifying Model's current state
         :param dtheta:  derivatives of Model around current theta value
         :return theta_p:  proposed new parameter vector q(theta'|theta)
-        :return mhratio:  log(q(theta'|theta)/q(theta|theta')) 
+        :return logqratio:  log(q(theta'|theta)/q(theta|theta')) 
         """
         raise NotImplementedError("Non-overloaded abstract method!")
 
@@ -79,10 +109,6 @@ class Model(object):
     """
     A class associated with statistical models.  Encapsulates the data
     (perhaps in a plug-in way) and the form of the prior and likelihood.
-    Supported methods:
-        pack:  compute Model's internal state from a parameter vector
-        unpack:  compute a parameter vector from Model's internal state
-        eval:  evaluates the Model, with options to compute derivatives
     """
 
     def __init__(self):
