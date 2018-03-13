@@ -10,19 +10,7 @@ Exercise 1:  implement and test infinity-MALA.
 import numpy as np
 import matplotlib.pyplot as plt
 from riemann import Sampler, Proposal, Model
-
-
-class RiemannBaseError(Exception):
-    
-    def __init__(self, msg):
-        self.msg = msg
-
-    def __str__(self):
-        return "{}: {}".format(self.__class__.__name__, self.msg)
-
-
-class ParameterError(RiemannBaseError):
-    pass
+from riemann import ParameterError
 
 
 def logsumexp(x, axis=None):

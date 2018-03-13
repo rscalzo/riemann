@@ -11,6 +11,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+class RiemannBaseError(Exception):
+    """
+    Simple base class for Riemann exceptions.
+    """
+    def __init__(self, msg):
+        self.msg = msg
+    def __str__(self):
+        return "{}: {}".format(self.__class__.__name__, self.msg)
+
+
+class ParameterError(RiemannBaseError):
+    """
+    Exception for faulty parameters.
+    """
+    pass
+
+
 class Sampler(object):
     """
     A class associated with sampling.  Given a Model and a Proposal,
@@ -105,7 +122,7 @@ class Model(object):
         """
         (Unnormalized) log posterior given a parameter vector theta.
         """
-        pass
+        return self.log_prior(theta) + self.log_posterior(theta)
 
     def logL(self, theta):
         return self.log_likelihood(theta)
