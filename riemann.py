@@ -31,13 +31,26 @@ class ParameterError(RiemannBaseError):
 class Sampler(object):
     """
     A class associated with sampling.  Given a Model and a Proposal,
-    sample the Model using the Proposal.  Supported methods:
-        sample:  sample the model given a burn-in and thinning ratio
-        acor:  compute auto-correlation time of a chain
-        R:  compute Gelman-Rubin statistic for a set of chains
+    sample the Model using the Proposal.
     """
 
-    pass
+    def run(self, model, proposal, Nburn=0, Nthin=1):
+        """
+        Run the sampler.
+        """
+        pass
+
+    def sample(self, model, proposal):
+        """
+        Draw a single sample from the MCMC chain.
+        """
+        pass
+
+    def acor(self):
+        """
+        Computes autocorrelation of the MCMC chain.
+        """
+        pass
 
 
 class Proposal(object):
@@ -46,8 +59,6 @@ class Proposal(object):
     of the chain, propose the next state.  Supports Models with and/or
     without derivative information.  Supported methods:
         propose:  draw from proposal distribution
-        mhratio:  compute asymmetry of proposal density btwn two states
-            (taking possible proposal asymmetries into account)
     """
 
     def __init__(self):
