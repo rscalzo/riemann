@@ -94,11 +94,11 @@ class Proposal(object):
     def __init__(self):
         pass
 
-    def propose(self, theta, dtheta=None):
+    def propose(self, theta, **kwargs):
         """
         Given a state theta, compute a new state theta'.
         :param theta:  parameter vector specifying Model's current state
-        :param dtheta:  derivatives of Model around current theta value
+        :param kwargs:  other settings to be used by derived classes
         :return theta_p:  proposed new parameter vector q(theta'|theta)
         :return logqratio:  log(q(theta'|theta)/q(theta|theta')) 
         """
