@@ -61,7 +61,7 @@ class Sampler(object):
         for i in range(Nsamples):
             theta, logpost = self.sample()
             if i % Nthin == 0:
-                self._chain_accept.append(theta == self._chain_thetas[-1])
+                self._chain_accept.append(theta != self._chain_thetas[-1])
                 self._chain_thetas.append(theta)
                 self._chain_logPs.append(logpost)
 
@@ -71,9 +71,10 @@ class Sampler(object):
         using the Metropolis-Hastings criterion.
         """
         theta_old = self._chain_thetas[-1]
+        logpost_old = self._chain_logPs[-1]
         theta_prop, logqratio = self.proposal.propose(theta_old)
         logpost = self.model.log_posterior(theta_prop)
-        mhratio = min(1, np.exp(logpost + logqratio))
+        mhratio = min(1, np.exp(logpost - logpost_old - logqratio))
         if np.random.uniform() < mhratio:
             return theta_prop, logpost
         else:
@@ -92,6 +93,8 @@ class Sampler(object):
         """
         print "Acceptance probability of chain:  {:.3g}".format(
                 np.sum(self._chain_accept)/float(len(self._chain_accept)))
+        print "Standard deviation of chain:  {:.3g}".format(
+                np.std(self._chain_thetas))
 
 
 class Proposal(object):

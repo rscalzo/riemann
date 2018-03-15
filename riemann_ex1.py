@@ -45,21 +45,33 @@ class pCN(Proposal):
     """
 
     def __init__(self, C, rho):
-        self.L = np.linalg.cholesky(C)
         self.rho = rho
+        self.rho_c = np.sqrt(1-self.rho**2)
+        self.L = np.linalg.cholesky(C)
 
     def propose(self, theta):
         # proposal theta'
+        theta = np.atleast_1d(theta)
         xi = np.random.normal(size=theta.shape)
-        theta_p = self.rho*theta + np.sqrt(1-self.rho**2)*np.dot(self.L, xi)
+        theta_p = self.rho*theta + self.rho_c*np.dot(self.L, xi)
         # proposal density ratio q(theta'|theta)/q(theta|theta')
         dtheta_fwd = theta_p - self.rho*theta
         dtheta_rev = theta - self.rho*theta_p
-        u_fwd = np.linalg.solve(self.L, dtheta_fwd)
-        u_rev = np.linalg.solve(self.L, dtheta_rev)
-        logqratio = -0.5*(np.dot(u_fwd, u_fwd) - np.dot(u_rev, u_rev))
+        u_fwd = np.linalg.solve(self.L*self.rho_c, dtheta_fwd)
+        u_rev = np.linalg.solve(self.L*self.rho_c, dtheta_rev)
+        logqratio = -0.5*((np.dot(u_fwd, u_fwd) -
+                           np.dot(u_rev, u_rev))) # / self.rho_c**2
+        """
+        print "theta      = {}".format(theta)
+        print "theta_p    = {}".format(theta_p)
+        print "dtheta_fwd = {}".format(dtheta_fwd)
+        print "dtheta_rev = {}".format(dtheta_rev)
+        print "u_fwd      = {}".format(u_fwd)
+        print "u_rev      = {}".format(u_rev)
+        print "logqratio  = {}".format(logqratio)
+        """
 
-        return theta, logqratio
+        return theta_p, logqratio
 
 
 class UniGaussian(Model):
@@ -208,7 +220,8 @@ def test_sampling_gauss1d():
     # Let's just do a univariate Gaussian for now.
     N = 10000
     model = SimpleGaussian()
-    proposal = MetropolisRandomWalk([[1]])
+    # proposal = MetropolisRandomWalk([[1]])
+    proposal = pCN([[1]], 0.1)
     sampler = Sampler(model, proposal, np.array([]), 0.0)
     sampler.run(N)
     sampler.print_chain_stats()
