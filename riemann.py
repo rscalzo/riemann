@@ -53,17 +53,15 @@ class Sampler(object):
         # Burn in chain; throw away samples, we don't care about them
         self._chain_thetas = self._chain_thetas[-1:]
         self._chain_logPs = self._chain_logPs[-1:]
-        for i in range(Nburn):
-            theta, logpost = self.sample()
-        # Reset and sample chain, keeping every Nthin-th sample
-        self._chain_thetas = self._chain_thetas[-1:]
-        self._chain_logPs = self._chain_logPs[-1:]
+        print "Running Sampler"
         for i in range(Nsamples):
             theta, logpost = self.sample()
-            if i % Nthin == 0:
-                self._chain_accept.append(theta != self._chain_thetas[-1])
-                self._chain_thetas.append(theta)
-                self._chain_logPs.append(logpost)
+            self._chain_accept.append(theta != self._chain_thetas[-1])
+            self._chain_thetas.append(theta)
+            self._chain_logPs.append(logpost)
+        self._chain_accept = self._chain_accept[Nburn::Nthin]
+        self._chain_thetas = self._chain_thetas[Nburn::Nthin]
+        self._chain_logPs = self._chain_thetas[Nburn::Nthin]
 
     def sample(self):
         """
@@ -78,7 +76,7 @@ class Sampler(object):
         if np.random.uniform() < mhratio:
             return theta_prop, logpost
         else:
-            return theta_old, logpost
+            return theta_old, logpost_old
 
     def acor(self):
         """
