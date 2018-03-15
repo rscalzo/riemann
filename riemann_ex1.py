@@ -29,13 +29,14 @@ class MetropolisRandomWalk(Proposal):
     """
 
     def __init__(self, C):
-        self.L = np.random.cholesky(C)
+        self.L = np.linalg.cholesky(C)
 
     def propose(self, theta):
+        theta = np.atleast_1d(theta)
         if self.L.shape[1] != theta.shape[0]:
             raise ParameterError("theta and L have incompatible shapes")
         xi = np.random.normal(size=theta.shape)
-        return theta + np.dot(self.L, xi), 1.0
+        return theta + np.dot(self.L, xi), 0.0
 
 
 class pCN(Proposal):
@@ -44,7 +45,7 @@ class pCN(Proposal):
     """
 
     def __init__(self, C, rho):
-        self.L = np.random.cholesky(C)
+        self.L = np.linalg.cholesky(C)
         self.rho = rho
 
     def propose(self, theta):
@@ -67,6 +68,7 @@ class UniGaussian(Model):
     """
 
     def __init__(self, mu, sigma):
+        self.Npars = 2
         self.mu = mu
         self.sigma = sigma
         self.theta_cached = None
@@ -84,7 +86,7 @@ class UniGaussian(Model):
             return
         if theta.shape != (2,):
             raise ParameterError("theta should have shape (2,)")
-        self.mu, self.sig ma = theta
+        self.mu, self.sigma = theta
         self.theta_cached = theta
 
     def log_likelihood(self, theta, pointwise=False):
@@ -110,6 +112,7 @@ class MultiGaussian(Model):
             raise ParameterError("mu and C have incompatible shapes {}, {}"
                                  .format(mu.shape, C.shape))
         self.Ndim = N
+        self.Npars = N + N*(N+1)/2
         self.mu = np.zeros(size=(N,))
         self.C = np.eye(size=(N,N))
         self.L = np.sqrt(self.C)
@@ -128,6 +131,7 @@ class MultiGaussian(Model):
         return theta
 
     def unpack(self, theta):
+        # This will work, technically, but autograd won't like it
         if theta == self.theta_cached:
             return
         if theta.shape != self.Ndim + self.Ndim*(self.Ndim+1)/2:
@@ -141,7 +145,7 @@ class MultiGaussian(Model):
         self.L = np.linalg.cholesky(C + eps)
         self.theta_cached = theta
 
-    def log_likelihood(self, theta, pointwise=True):
+    def log_likelihood(self, theta, pointwise=False):
         self.unpack(theta)
         # Pointwise log likelihood should have shape (Ndata, Npars)
         y = self.data - self.mu[np.newaxis,:]
@@ -176,9 +180,49 @@ class MixtureModel(Model):
             theta = np.concatenate([theta, Crow[i:]])
         return theta
 
-    def log_likelihood(self, theta, pointwise=True):
-        Li = np.array([m.logL_ptwise(theta) for m in model_list])
-        return logsumexp(Li, axis=0)
+    def log_likelihood(self, theta, pointwise=False):
+        logLij = np.array([m.logL_ptwise(theta) for m in model_list])
+        logL_ptwise = logsumexp(logLij, axis=0)
+        return logL_ptwise if pointwise else np.sum(logL_ptwise)
 
-    def log_prior(self, theta, pointwise=True):
+    def log_prior(self, theta, pointwise=False):
         return np.sum([m.logP(theta) for m in model_list])
+
+
+class SimpleGaussian(Model):
+    """
+    Just samples a Gaussian without trying to fit anything to data yet.
+    """
+
+    def load_data(self, data):
+        pass
+
+    def log_posterior(self, theta):
+        return -0.5*np.sum(theta**2)
+
+
+def test_sampling_gauss1d():
+    """
+    Sample a distribution by various methods.
+    """
+    # Let's just do a univariate Gaussian for now.
+    N = 10000
+    model = SimpleGaussian()
+    proposal = MetropolisRandomWalk([[1]])
+    sampler = Sampler(model, proposal, np.array([]), 0.0)
+    sampler.run(N)
+    sampler.print_chain_stats()
+    # Plot the samples
+    plt.subplot(2, 1, 1)
+    x = np.linspace(-5, 5, 26)
+    dx = np.mean(x[1:] - x[:-1])
+    plt.hist(sampler._chain_thetas, bins=26, range=(-5,5), color='b')
+    plt.plot(x, N*dx*np.exp(-0.5*x**2)/np.sqrt(2*np.pi),
+             color='r', ls='--', lw=2)
+    plt.subplot(2, 1, 2)
+    plt.plot(sampler._chain_thetas)
+    plt.show()
+
+
+if __name__ == "__main__":
+    test_sampling_gauss1d()

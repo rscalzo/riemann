@@ -42,6 +42,7 @@ class Sampler(object):
         self.model = model
         self.proposal = proposal
         self.model.load_data(data)
+        self._chain_accept = [ True ]
         self._chain_thetas = [ theta0 ]
         self._chain_logPs = [ model.log_posterior(theta0) ]
 
@@ -59,7 +60,8 @@ class Sampler(object):
         self._chain_logPs = self._chain_logPs[-1:]
         for i in range(Nsamples):
             theta, logpost = self.sample()
-            if i % Nthin = 0:
+            if i % Nthin == 0:
+                self._chain_accept.append(theta == self._chain_thetas[-1])
                 self._chain_thetas.append(theta)
                 self._chain_logPs.append(logpost)
 
@@ -75,13 +77,21 @@ class Sampler(object):
         if np.random.uniform() < mhratio:
             return theta_prop, logpost
         else:
-            return theta_new, logpost
+            return theta_old, logpost
 
     def acor(self):
         """
         Computes autocorrelation of the MCMC chain.
         """
         pass
+
+    def print_chain_stats(self):
+        """
+        Displays useful quantities like the acceptance probability and
+        autocorrelation time.
+        """
+        print "Acceptance probability of chain:  {:.3g}".format(
+                np.sum(self._chain_accept)/float(len(self._chain_accept)))
 
 
 class Proposal(object):
