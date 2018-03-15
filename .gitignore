@@ -1,0 +1,8 @@
+# Temporary files
+.*.swp
+*~
+*.pyc
+# Directories and other files
+.DS_Store
+Resources
+riemann-soc.txt
