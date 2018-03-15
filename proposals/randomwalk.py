@@ -14,7 +14,6 @@ class MetropolisRandomWalk(Proposal):
     """
 
     def __init__(self, C):
-        print "Using MetropolisRandomWalk from inside package"
         self.L = np.linalg.cholesky(C)
 
     def propose(self, theta):

@@ -53,7 +53,6 @@ class Sampler(object):
         # Burn in chain; throw away samples, we don't care about them
         self._chain_thetas = self._chain_thetas[-1:]
         self._chain_logPs = self._chain_logPs[-1:]
-        print "Running Sampler"
         for i in range(Nsamples):
             theta, logpost = self.sample()
             self._chain_accept.append(theta != self._chain_thetas[-1])
@@ -97,9 +96,8 @@ class Sampler(object):
 
 class Proposal(object):
     """
-    A class associated with MCMC proposals.  Given a Model and the state
-    of the chain, propose the next state.  Supports Models with and/or
-    without derivative information.
+    A class associated with Metropolis-Hastings proposals.
+    Given a Model and the state of the chain, propose the next state.
     """
 
     def __init__(self):
@@ -127,38 +125,48 @@ class Model(object):
 
     def load_data(self, data):
         """
-        Initializer for a dataset.
+        Initializer for a dataset.  Should include any checks that the
+        data are properly formatted, complete, etc. for this Model.
+        :param data:  arbitrary object instance containing data
         """
         raise NotImplementedError("Non-overloaded abstract method!")
 
     def pack(self):
         """
         Optional:  Compute parameter vector from Model's internal state.
+        :return theta:  parameter vector as np.array of shape (Npars, )
         """
         pass
 
     def unpack(self, theta):
         """
         Optional:  Compute Model's internal state from parameter vector.
+        :param theta:  parameter vector as np.array of shape (Npars, )
         """
         pass
 
     def log_likelihood(self, theta):
         """
-        Log likelihood of the Model given a parameter vector theta.
-        Assumes self.load_data() has been called.
+        Log likelihood of the Model; assumes load_data() has been called
+        (if this Model needs data).
+        :param theta:  parameter vector as np.array of shape (Npars, )
+        :return logL:  log likelihood
         """
         raise NotImplementedError("Non-overloaded abstract method!")
 
     def log_prior(self, theta):
         """
-        Log prior of the Model given a parameter vector theta.
+        Log prior of the Model.
+        :param theta:  parameter vector as np.array of shape (Npars, )
+        :return logL:  log prior
         """
         raise NotImplementedError("Non-overloaded abstract method!")
 
     def log_posterior(self, theta):
         """
-        (Unnormalized) log posterior given a parameter vector theta.
+        (Unnormalized) log posterior of the Model.
+        :param theta:  parameter vector as np.array of shape (Npars, )
+        :return logpost:  log posterior
         """
         return self.log_prior(theta) + self.log_likelihood(theta)
 
@@ -170,3 +178,23 @@ class Model(object):
 
     def __call__(self, theta):
         return self.log_posterior(theta)
+
+    def grad_log_posterior(self, theta):
+        """
+        (Unnormalized) gradient of the log posterior.
+        :param theta:  parameter vector as np.array of shape (Npars, )
+        :return dlogL:  gradient of the log posterior, shape (Npars, )
+        """
+        return np.sum(self.score_matrix(theta), axis=0)
+
+    def score_matrix(self, theta):
+        """
+        Score matrix of the Model:  a matrix with the contribution of
+        each data point to the gradient of the log posterior.
+        S.sum(axis=0) is the gradient needed for Hamiltonian dynamics;
+        np.dot(S, S.T) provides the Fisher matrix for geometric methods.
+        In practice this will probably involve auto-differentiation.
+        :param theta:  parameter vector
+        :return S:  np.array of shape (Ndata, Npars)
+        """
+        raise NotImplementedError("Non-overloaded abstract method!")
