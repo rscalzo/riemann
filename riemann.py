@@ -43,9 +43,9 @@ class Sampler(object):
         self.proposal = proposal
         self.model.load_data(data)
         self._chain_thetas = [ theta0 ]
-        self._chain_logPs = [ model.log_posterior(theta) ]
+        self._chain_logPs = [ model.log_posterior(theta0) ]
 
-    def run(self, model, proposal, Nsamples, Nburn=0, Nthin=1):
+    def run(self, Nsamples, Nburn=0, Nthin=1):
         """
         Run the Sampler.
         """
@@ -149,7 +149,7 @@ class Model(object):
         """
         (Unnormalized) log posterior given a parameter vector theta.
         """
-        return self.log_prior(theta) + self.log_posterior(theta)
+        return self.log_prior(theta) + self.log_likelihood(theta)
 
     def logL(self, theta):
         return self.log_likelihood(theta)
