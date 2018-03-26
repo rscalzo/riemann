@@ -29,6 +29,7 @@ At present the code contains three base class hierarchies:
 * `Sampler`, a basic MCMC sampler
 * `Proposal`, an abstract base class for Metropolis-Hastings proposals
 * `Model`, an abstract base class for statistical models
+
 Each `Sampler` will eventually understand how to display itself along with
 key performance plots, such as trace plots or posterior slices.
 `Proposal` instances include support for asymmetric proposals and for
