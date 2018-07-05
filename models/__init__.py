@@ -1,1 +1,1 @@
-from gaussian import SimpleGaussian, UniGaussian, MultiGaussian
+from gaussian import SimpleGaussian, UniGaussian, MultiGaussian, SqueezedMultiGaussian

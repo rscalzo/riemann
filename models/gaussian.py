@@ -156,3 +156,25 @@ class SimpleGaussian(Model):
     def log_posterior(self, theta):
         mu, sigma = 1.0, 0.5
         return -0.5*np.sum((theta - mu)**2/sigma**2)
+
+
+class SqueezedMultiGaussian(Model):
+    """
+    Just samples a Gaussian without trying to fit anything to data yet.
+    """
+
+    def __init__(self, M, rho=0.0):
+        self.Ndim = M
+        self.mu = np.zeros(M)
+        self.C = (1.0-rho)*np.eye(M) + rho*np.ones((M,M))
+        self.L = np.linalg.cholesky(self.C)
+        self.theta_cached = None
+
+    def load_data(self, data):
+        pass
+
+    def log_posterior(self, theta):
+        y = theta - self.mu
+        u = np.linalg.solve(self.L, y)
+        logdetC = 2*np.sum(np.log(np.diag(self.L)))
+        return -0.5*(np.dot(u, u) + len(y)*np.log(2*np.pi) + logdetC)
