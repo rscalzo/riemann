@@ -15,8 +15,10 @@ class RiemannBaseError(Exception):
     """
     Simple base class for Riemann exceptions.
     """
+
     def __init__(self, msg):
         self.msg = msg
+
     def __str__(self):
         return "{}: {}".format(self.__class__.__name__, self.msg)
 
@@ -34,17 +36,15 @@ class Sampler(object):
     sample the Model using the Proposal.
     """
 
-    def __init__(self, model, proposal, data, theta0):
+    def __init__(self, model, proposal, theta0):
         """
-        Initialize a Sampler with a model, a proposal, data, and a guess
+        Initialize a Sampler with a model, a proposal, and a guess
         at some reasonable starting parameters.
         """
         self.model = model
         self.proposal = proposal
-        self.model.load_data(data)
-        self._chain_accept = [ True ]
         self._chain_thetas = [ theta0 ]
-        self._chain_logPs = [ model.log_posterior(theta0) ]
+        self._chain_logpost = [ model.log_posterior(theta0) ]
 
     def run(self, Nsamples, Nburn=0, Nthin=1):
         """
@@ -52,46 +52,47 @@ class Sampler(object):
         """
         # Burn in chain; throw away samples, we don't care about them
         self._chain_thetas = self._chain_thetas[-1:]
-        self._chain_logPs = self._chain_logPs[-1:]
+        self._chain_logpost = self._chain_logpost[-1:]
         for i in range(Nsamples):
-            theta, logpost = self.sample()
-            self._chain_accept.append(theta != self._chain_thetas[-1])
-            self._chain_thetas.append(theta)
-            self._chain_logPs.append(logpost)
-        self._chain_accept = self._chain_accept[Nburn::Nthin]
+            self.sample()
         self._chain_thetas = self._chain_thetas[Nburn::Nthin]
-        self._chain_logPs = self._chain_thetas[Nburn::Nthin]
+        self._chain_logpost = self._chain_logpost[Nburn::Nthin]
+
+    def current_state(self):
+        """
+        Returns a (theta, log_posterior) tuple for the current state.
+        """
+        return self._chain_thetas[-1], self._chain_logpost[-1]
+
+    def _add_state(self, theta, logpost):
+        """
+        Adds an explicitly given state to the chain.  Internal use only!
+        Useful as a hook for meta-methods like parallel tempering.
+        :param theta: parameter vector to add to the chain history
+        :param logpost: log posterior value to add to the chain history
+        """
+        self._chain_thetas.append(theta)
+        self._chain_logpost.append(logpost)
 
     def sample(self):
         """
-        Draw a single sample from the MCMC chain, and accept or reject
-        using the Metropolis-Hastings criterion.
+        Draw a single sample from the MCMC chain, accept or reject via
+        the Metropolis-Hastings criterion, and add to the chain history.
+        :return theta: new parameter vector added to chain history
+        :return logpost: log posterior value added to chain history
         """
-        theta_old = self._chain_thetas[-1]
-        logpost_old = self._chain_logPs[-1]
+        # Retrieve the last state
+        theta_old, logpost_old = self.current_state()
         theta_prop, logqratio = self.proposal.propose(theta_old)
-        logpost = self.model.log_posterior(theta_prop)
-        mhratio = min(1, np.exp(logpost - logpost_old - logqratio))
+        logpost_prop = self.model.log_posterior(theta_prop)
+        mhratio = min(1, np.exp(logpost_prop - logpost_old - logqratio))
         if np.random.uniform() < mhratio:
-            return theta_prop, logpost
+            theta, logpost = theta_prop, logpost_prop
         else:
-            return theta_old, logpost_old
-
-    def acor(self):
-        """
-        Computes autocorrelation of the MCMC chain.
-        """
-        pass
-
-    def print_chain_stats(self):
-        """
-        Displays useful quantities like the acceptance probability and
-        autocorrelation time.
-        """
-        print "Acceptance probability of chain:  {:.3g}".format(
-                np.sum(self._chain_accept)/float(len(self._chain_accept)))
-        print "Standard deviation of chain:  {:.3g}".format(
-                np.std(self._chain_thetas))
+            theta, logpost = theta_old, logpost_old
+        self.proposal.adapt(theta)
+        self._add_state(theta, logpost)
+        return theta, logpost
 
 
 class Proposal(object):
@@ -113,6 +114,15 @@ class Proposal(object):
         """
         raise NotImplementedError("Non-overloaded abstract method!")
 
+    def adapt(self, accepted_theta):
+        """
+        A hook for Adaptive Proposals to accept feedback from a Sampler.
+        Won't be used for most Proposals.  This prevents us from having
+        to implement a separate AdaptiveSampler class.
+        :param accepted_theta: last accepted parameter vector
+        """
+        pass
+
 
 class Model(object):
     """
@@ -122,14 +132,6 @@ class Model(object):
 
     def __init__(self):
         pass
-
-    def load_data(self, data):
-        """
-        Initializer for a dataset.  Should include any checks that the
-        data are properly formatted, complete, etc. for this Model.
-        :param data:  arbitrary object instance containing data
-        """
-        raise NotImplementedError("Non-overloaded abstract method!")
 
     def pack(self):
         """
@@ -147,8 +149,7 @@ class Model(object):
 
     def log_likelihood(self, theta):
         """
-        Log likelihood of the Model; assumes load_data() has been called
-        (if this Model needs data).
+        Log likelihood of the Model.
         :param theta:  parameter vector as np.array of shape (Npars, )
         :return logL:  log likelihood
         """
@@ -168,7 +169,13 @@ class Model(object):
         :param theta:  parameter vector as np.array of shape (Npars, )
         :return logpost:  log posterior
         """
-        return self.log_prior(theta) + self.log_likelihood(theta)
+        logP, logL = self.log_prior(theta), self.log_likelihood(theta)
+        if np.any([np.isinf(logP), np.isnan(logP),
+                   np.isinf(logL), np.isnan(logL)]):
+            logpost = -np.inf
+        else:
+            logpost = logP + logL
+        return logpost
 
     def logL(self, theta):
         return self.log_likelihood(theta)
@@ -178,23 +185,3 @@ class Model(object):
 
     def __call__(self, theta):
         return self.log_posterior(theta)
-
-    def grad_log_posterior(self, theta):
-        """
-        (Unnormalized) gradient of the log posterior.
-        :param theta:  parameter vector as np.array of shape (Npars, )
-        :return dlogL:  gradient of the log posterior, shape (Npars, )
-        """
-        return np.sum(self.score_matrix(theta), axis=0)
-
-    def score_matrix(self, theta):
-        """
-        Score matrix of the Model:  a matrix with the contribution of
-        each data point to the gradient of the log posterior.
-        S.sum(axis=0) is the gradient needed for Hamiltonian dynamics;
-        np.dot(S, S.T) provides the Fisher matrix for geometric methods.
-        In practice this will probably involve auto-differentiation.
-        :param theta:  parameter vector
-        :return S:  np.array of shape (Ndata, Npars)
-        """
-        raise NotImplementedError("Non-overloaded abstract method!")
