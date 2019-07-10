@@ -18,67 +18,74 @@ def logsumexp(x, axis=None):
     return max_x + np.log(np.sum(np.exp(x - max_x), axis=axis))
 
 
-class UniGaussian(Model):
+class MultiGaussianDist(Model):
     """
-    An easier model than the supposedly easy model below.
-    """
-
-    def __init__(self, mu, sigma):
-        self.Npars = 2
-        self.mu = mu
-        self.sigma = sigma
-        self.theta_cached = None
-
-    def load_data(self, data):
-        if len(data.shape) != 1:
-            raise ParameterError("data needs to be 1-dimensional")
-        self.data = data
-
-    def pack(self):
-        return np.array([self.mu, self.sigma])
-
-    def unpack(self, theta):
-        if theta == self.theta_cached:
-            return
-        if theta.shape != (2,):
-            raise ParameterError("theta should have shape (2,)")
-        self.mu, self.sigma = theta
-        self.theta_cached = theta
-
-    def log_likelihood(self, theta, pointwise=False):
-        self.unpack(theta)
-        y = self.data - self.mu
-        logL_ptwise = -0.5*(y**2 + np.log(2*np.pi*self.sigma))
-        return logL_ptwise if pointwise else np.sum(logL_ptwise)
-
-    def log_prior(self, theta):
-        self.unpack(theta)
-        return -0.5*self.mu**2 + 1.0/self.sigma**2
-
-
-class MultiGaussian(Model):
-    """
-    A multivariate Gaussian, because we start with the easy things.
+    A multivariate Gaussian distribution with known mean and covariance.
+    Probably a little over-engineered for a one-dimensional Gaussian...
     """
 
     def __init__(self, mu, C):
+        """
+        :param mu: mean; np.array of shape (Ndim,)
+        :param C: covariance; np.array of shape (Ndim, Ndim)
+        """
+        # Sanity checks for input
+        mu = np.atleast_1d(mu)
+        C = np.atleast_2d(C)
         if C.shape[0] != C.shape[1]:
             raise ParameterError("C has non-square shape {}".format(C.shape))
         if C.shape[1] != mu.shape[0]:
             raise ParameterError("mu and C have incompatible shapes {}, {}"
                                  .format(mu.shape, C.shape))
-        self.Ndim = N
-        self.Npars = N + N*(N+1)/2
-        self.mu = np.zeros(size=(N,))
-        self.C = np.eye(size=(N,N))
-        self.L = np.sqrt(self.C)
-        self.theta_cached = None
+        # Cache Cholesky factor and log det for later use
+        self.mu = mu
+        self.L = np.linalg.cholesky(C)
+        self.logdetC = 2*np.sum(np.log(np.diag(self.L)))
+        self.Ndim = len(mu)
 
-    def load_data(self, data):
-        if data.shape[0] != self.Ndim:
+    def log_prior(self, theta):
+        return 0.0
+
+    def log_likelihood(self, theta):
+        y = theta - self.mu
+        u = np.linalg.solve(self.L, y)
+        return -0.5*(np.dot(u, u) + len(y)*np.log(2*np.pi) + self.logdetC)
+
+    def draw(self, Ndraws=1):
+        """
+        Draw from the Gaussian with these parameters.
+        :return: np.array with shape (Ndraws, Ndim)
+        """
+        epsilon = np.random.normal(size=(Ndraws, self.mu.shape[0]))
+        return np.dot(epsilon, self.L.T) + self.mu
+
+
+class MultiGaussianModel(Model):
+    """
+    A multivariate Gaussian distribution with unknown mean + covariance
+    meant to be deployed in constructions like mixture models.
+    """
+
+    def __init__(self, mu, C, data):
+        """
+        :param mu: init guess mean; np.array of shape (Ndim,)
+        :param C: init guess covariance; np.array of shape (Ndim, Ndim)
+        """
+        # Sanity checks for input
+        mu = np.atleast_1d(mu)
+        C = np.atleast_2d(C)
+        self.Ndim = N = mu.shape[0]
+        if C.shape[0] != C.shape[1]:
+            raise ParameterError("C has non-square shape {}".format(C.shape))
+        if C.shape[1] != N:
+            raise ParameterError("mu and C have incompatible shapes {}, {}"
+                                 .format(mu.shape, C.shape))
+        if data.shape[1] != self.Ndim:
             raise ParameterError("data and mu have incompatible shapes {}, {}"
-                                 .format(data.shape, mu.shape))
-        self.data = data
+                                 .format(data.shape, self.mu.shape))
+        
+        self.Npars = N + N*(N+1)/2      # total number of parameters
+        self._theta_cached = None       # for lazy evaluation 
 
     def pack(self):
         theta = np.array(self.mu)
@@ -87,35 +94,64 @@ class MultiGaussian(Model):
         return theta
 
     def unpack(self, theta):
-        # This will work, technically, but autograd won't like it
-        if theta == self.theta_cached:
+        # This will work, technically, but autograd probably won't like it
+        if np.all(theta == self._theta_cached):
             return
-        if theta.shape != self.Ndim + self.Ndim*(self.Ndim+1)/2:
+        if len(theta) != self.Ndim + self.Ndim*(self.Ndim+1)/2:
             raise ParameterError("theta, mu and C have incompatible shapes")
+        # Represent covariance directly as lower-triangular Cholesky factor,
+        # in the hopes of improving numerical stability
         self.mu = theta[:self.Ndim]
         k = self.Ndim
-        for i, Crow in enumerate(self.C):
-            self.C[i,i:] = self.C[i:,i] = theta[k:k+(Ndim-i)]
-            k += Ndim - i
-        eps = 1e-10*np.eye(np.median(np.diag(C)))
-        self.L = np.linalg.cholesky(C + eps)
-        self.theta_cached = theta
+        for i, Lrow in enumerate(self.L):
+            # self.C[i,i:] = self.C[i:,i] = theta[k:k+(self.Ndim-i)]
+            self.L[i:,i] = theta[k:k+(self.Ndim-i)]
+            k += self.Ndim - i
+        self.C = np.dot(self.L, self.L.T)
+        self.logdetC = 2*np.sum(np.log(np.diag(self.L)))
+        self.logNd2pi = self.Ndim*np.log(2*np.pi)
+        self._theta_cached = theta
 
-    def log_likelihood(self, theta, pointwise=False):
+    def log_likelihood(self, theta):
         self.unpack(theta)
         # Pointwise log likelihood should have shape (Ndata, Npars)
         y = self.data - self.mu[np.newaxis,:]
-        u = np.linalg.solve(self.L, y)
-        logdetC = 2*np.sum(np.log(np.diag(self.L)))
+        # np.linalg.solve(A, b) solves Ax = b
+        # so A.shape = (Npars, Npars), b.shape = (Npars, Ndata)
+        # meaning x.shape = (Npars, Ndata)
+        u = np.linalg.solve(self.L, y.T).T
         logL_ptwise = -0.5*(np.array([np.dot(ui, ui) for ui in u]) +
-                            np.log(2*np.pi*logdetC))
-        return logL_ptwise if pointwise else np.sum(logL_ptwise)
+                            self.logNd2pi + self.logdetC)
+        return np.sum(logL_ptwise)
 
     def log_prior(self, theta):
         # Put some Wishart prior stuff in here later, when I have a brain
         self.unpack(theta)
-        return 1.0
+        if np.any(np.diag(self.L) <= 0):
+            logP = -np.inf
+        else:
+            logP = 0.0
+        return logP
 
+
+class MixtureDist(Model):
+    """
+    A mixture distribution with fixed mixture weights.
+    """
+
+    def __init__(self, model_list, weights):
+        self._models = model_list
+        self.weights = weights
+        self._thetas = [ ]
+
+    def log_likelihood(self, theta):
+        return logsumexp([np.log(self.weights[i]) +
+                          self._models[i].log_likelihood(theta)
+                          for i in range(len(self._models))])
+                
+    def log_prior(self, theta):
+        return 0.0
+    
 
 class MixtureModel(Model):
     """
@@ -126,55 +162,15 @@ class MixtureModel(Model):
     def __init__(self, model_list):
         self.model_list = model_list
 
-    def load_data(self, data):
-        for m in model_list:
-            m.load_data(data)
-
     def pack(self):
         theta = np.array(self.mu)
         for i, Crow in enumerate(self.C):
             theta = np.concatenate([theta, Crow[i:]])
         return theta
 
-    def log_likelihood(self, theta, pointwise=False):
-        logLij = np.array([m.logL_ptwise(theta) for m in model_list])
-        logL_ptwise = logsumexp(logLij, axis=0)
-        return logL_ptwise if pointwise else np.sum(logL_ptwise)
+    def log_likelihood(self, theta):
+        logLij = np.array([m.logL(theta) for m in model_list])
+        return logsumexp(logLij, axis=0)
 
-    def log_prior(self, theta, pointwise=False):
+    def log_prior(self, theta):
         return np.sum([m.logP(theta) for m in model_list])
-
-
-class SimpleGaussian(Model):
-    """
-    Just samples a Gaussian without trying to fit anything to data yet.
-    """
-
-    def load_data(self, data):
-        pass
-
-    def log_posterior(self, theta):
-        mu, sigma = 1.0, 0.5
-        return -0.5*np.sum((theta - mu)**2/sigma**2)
-
-
-class SqueezedMultiGaussian(Model):
-    """
-    Just samples a Gaussian without trying to fit anything to data yet.
-    """
-
-    def __init__(self, M, rho=0.0):
-        self.Ndim = M
-        self.mu = np.zeros(M)
-        self.C = (1.0-rho)*np.eye(M) + rho*np.ones((M,M))
-        self.L = np.linalg.cholesky(self.C)
-        self.theta_cached = None
-
-    def load_data(self, data):
-        pass
-
-    def log_posterior(self, theta):
-        y = theta - self.mu
-        u = np.linalg.solve(self.L, y)
-        logdetC = 2*np.sum(np.log(np.diag(self.L)))
-        return -0.5*(np.dot(u, u) + len(y)*np.log(2*np.pi) + logdetC)
