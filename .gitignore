@@ -4,5 +4,6 @@
 *.pyc
 # Directories and other files
 .DS_Store
+.gitignore
 Resources
 riemann-soc.txt

@@ -1,1 +1,1 @@
-from .randomwalk import MetropolisRandomWalk, pCN
+from .randomwalk import MetropolisRandomWalk, AdaptiveMetropolisRandomWalk, pCN

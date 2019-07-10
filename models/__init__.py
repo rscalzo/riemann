@@ -1,1 +1,1 @@
-from gaussian import SimpleGaussian, UniGaussian, MultiGaussian, SqueezedMultiGaussian
+from gaussian import MultiGaussianDist, MultiGaussianModel, MixtureDist
