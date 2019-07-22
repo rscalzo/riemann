@@ -15,7 +15,6 @@ setuptools.setup(
     description="A research framework for MCMC",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/rafaol/riemann",
     packages=setuptools.find_packages(exclude=('notebooks','docs',"scripts")),
     license=license,
     classifiers=[
