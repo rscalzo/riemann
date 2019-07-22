@@ -222,9 +222,9 @@ def test_sampling_gauss1d():
     model = SimpleGaussian()
     # proposal = MetropolisRandomWalk([[1]])
     proposal = pCN([[1]], 0.1)
-    sampler = Sampler(model, proposal, np.array([]), 0.0)
+    sampler = Sampler(model, proposal, 0.0)
     sampler.run(N)
-    sampler.print_chain_stats()
+    #sampler.print_chain_stats()
     # Plot the samples
     plt.subplot(2, 1, 1)
     x = np.linspace(-5, 5, 26)
