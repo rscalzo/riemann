@@ -85,8 +85,8 @@ class Sampler(object):
         theta_old, logpost_old = self.current_state()
         theta_prop, logqratio = self.proposal.propose(theta_old)
         logpost_prop = self.model.log_posterior(theta_prop)
-        mhratio = min(1, np.exp(logpost_prop - logpost_old - logqratio))
-        if np.random.uniform() < mhratio:
+        mhratio = min(0, logpost_prop - logpost_old - logqratio)
+        if np.log(np.random.uniform()) < mhratio:
             theta, logpost = theta_prop, logpost_prop
         else:
             theta, logpost = theta_old, logpost_old
