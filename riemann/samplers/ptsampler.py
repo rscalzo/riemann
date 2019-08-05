@@ -74,7 +74,7 @@ class PTSampler(Sampler):
             self.Pswap = Pswap
 
         # Set up a ladder of Samplers with different Models
-        print "PTSampler: betas =", self.betas
+        print("PTSampler: betas =", self.betas)
         self.samplers = [ ]
         for beta in self.betas:
             submodel = TemperedModel(model, beta)
