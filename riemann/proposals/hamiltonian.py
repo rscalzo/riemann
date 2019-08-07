@@ -58,3 +58,57 @@ class VanillaHMC(Proposal):
         logqratio = 0.5*(p_theta_new**2 - p_theta**2)
         # Return!
         return theta_new, logqratio
+
+class LookAheadHMC(Proposal):
+    """
+    Implementation of the Look-Ahead HMC proposal without detailed balance
+    (Sohl-Dickstein, Mudigonda & DeWeese 2014, arXiv:1409.5191)
+    """
+
+    def __init__(self, eps, M, logpost, gradlogpost, beta=1.0):
+        """
+        :param eps: value of epsilon for leapfrog integration
+        :param M: maximum number of leapfrog steps (integer >= 1)
+        :param beta: momentum corruption parameter, float in interval [0, 1]
+            with 0 = deterministic integration, 1 = fully randomized momenta
+        :param logpost: callable giving log(posterior) w/rt theta
+        :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
+        """
+        self.M = M
+        self.eps = eps
+        self._mU = logpost
+        self._mgradU = gradlogpost
+        self._p_theta = None
+
+    def propose(self, theta):
+        # Generate momenta
+        theta = np.atleast_1d(theta)
+        p_theta = self._p_theta
+        Dp_theta = np.random.normal(size=theta.shape)
+        if self._p_theta is None:
+            p_theta = Dp_theta
+        else:
+            p_theta = np.sqrt(beta)*Dp_theta + np.sqrt(1-beta)*p_theta
+        # Integrate and store M leapfrog points along the trajectory
+        logP0 = self._mU(theta) - 0.5*p_theta**2
+        plist, qlist = [p_theta], [theta]
+        logPlist = np.array([logP0])
+        pi_list = np.array([0.0])
+        for i in range(self.M):
+            p_theta_i, theta_i = leapfrog(
+                p_theta, theta, 1, self.eps, self._mgradU)
+            logP = self._mU(theta_i) - 0.5*p_theta_i**2
+            plist.append(p_theta_i)
+            qlist.append(theta_i)
+            pi_i = np.min(1.0 - np.sum(pi_list),
+                          np.exp(logP - logP0)*(1.0 - np.sum(pi_list*np.exp(logP0 - logP))))
+            pi_list = np.concatenate([pi_list, [pi_i]])
+        pi_list[0] = 1.0 - np.sum(pi_list)
+        # Pick a state!
+        idx = np.searchsorted(np.cumsum(pi_list), np.random.uniform())
+        theta = theta_list[idx]
+        # There is no reject step so logqratio = infinity for auto-accept
+        # if we're using a Metropolis-Hastings sampler to wrap this thing
+        logqratio = -np.inf
+        # Return!
+        return theta_new, logqratio
