@@ -59,6 +59,7 @@ class VanillaHMC(Proposal):
         # Return!
         return theta_new, logqratio
 
+
 class LookAheadHMC(Proposal):
     """
     Implementation of the Look-Ahead HMC proposal without detailed balance
@@ -79,6 +80,8 @@ class LookAheadHMC(Proposal):
         self._mU = logpost
         self._mgradU = gradlogpost
         self._p_theta = None
+        self._beta = beta
+        self._move_idx_count = np.zeros(M+1)
 
     def propose(self, theta):
         # Generate momenta
@@ -88,25 +91,41 @@ class LookAheadHMC(Proposal):
         if self._p_theta is None:
             p_theta = Dp_theta
         else:
-            p_theta = np.sqrt(beta)*Dp_theta + np.sqrt(1-beta)*p_theta
+            p_theta = (np.sqrt(self._beta)*Dp_theta +
+                       np.sqrt(1-self._beta)*p_theta)
         # Integrate and store M leapfrog points along the trajectory
         logP0 = self._mU(theta) - 0.5*p_theta**2
-        plist, qlist = [p_theta], [theta]
+        p_theta_list, theta_list = [p_theta], [theta]
         logPlist = np.array([logP0])
-        pi_list = np.array([0.0])
+        pi_La_list = [0.0]
+        pi_FLa_list = [0.0]
         for i in range(self.M):
+            # Leapfrog integration
             p_theta_i, theta_i = leapfrog(
-                p_theta, theta, 1, self.eps, self._mgradU)
+                p_theta_list[-1], theta_list[-1], 1, self.eps, self._mgradU)
             logP = self._mU(theta_i) - 0.5*p_theta_i**2
-            plist.append(p_theta_i)
-            qlist.append(theta_i)
-            pi_i = np.min(1.0 - np.sum(pi_list),
-                          np.exp(logP - logP0)*(1.0 - np.sum(pi_list*np.exp(logP0 - logP))))
-            pi_list = np.concatenate([pi_list, [pi_i]])
-        pi_list[0] = 1.0 - np.sum(pi_list)
+            # Form probability ratio of forward and backward hops
+            # and calculate transition probability for this step
+            R = np.exp(logP - logP0)
+            pi_La = np.min([1.0 - np.sum(pi_La_list),
+                           (1.0 - np.sum(pi_FLa_list))*R])
+            pi_FLa = np.min([1.0 - np.sum(pi_FLa_list),
+                            (1.0 - np.sum(pi_La_list))/R])
+            # print("theta, R, 1/R =", theta_i, R, 1.0/R)
+            # Append all quantities to chain
+            pi_La_list.append(pi_La)
+            pi_FLa_list.append(pi_FLa)
+            p_theta_list.append(p_theta_i)
+            theta_list.append(theta_i)
+        # Normalize
+        pi_La_list[0] = 1.0 - np.sum(pi_La_list)
+        p_theta_list[0] *= -1
+        # print("pi_La_list =", pi_La_list)
+        # print("pi_FLa_list =", pi_FLa_list)
         # Pick a state!
-        idx = np.searchsorted(np.cumsum(pi_list), np.random.uniform())
-        theta = theta_list[idx]
+        idx = np.searchsorted(np.cumsum(pi_La_list), np.random.uniform())
+        self._p_theta, theta_new = p_theta_list[idx], theta_list[idx]
+        self._move_idx_count[idx] += 1.0
         # There is no reject step so logqratio = infinity for auto-accept
         # if we're using a Metropolis-Hastings sampler to wrap this thing
         logqratio = -np.inf
