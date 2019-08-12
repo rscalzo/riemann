@@ -7,10 +7,21 @@ Exercise 1:  implement and test pCN.
 Exercise 1:  implement and test infinity-MALA.
 """
 
-import numpy as np
+try:
+    import Riemann
+except ImportError:
+    print("Fudging sys.path to support in-place execution in local sandbox")
+    import sys
+    sys.path.append("../")
+
+from autograd import grad
+import autograd.numpy as np
 import matplotlib.pyplot as plt
 from riemann import Sampler, Proposal, Model
 from riemann import ParameterError
+from riemann.models.gaussian import MultiGaussianDist
+from riemann.proposals.hamiltonian import VanillaHMC as HMC
+from riemann.proposals.hamiltonian import LookAheadHMC
 
 
 def logsumexp(x, axis=None):
@@ -123,10 +134,11 @@ class MultiGaussian(Model):
         if C.shape[1] != mu.shape[0]:
             raise ParameterError("mu and C have incompatible shapes {}, {}"
                                  .format(mu.shape, C.shape))
+        N = len(mu)
         self.Ndim = N
         self.Npars = N + N*(N+1)/2
-        self.mu = np.zeros(size=(N,))
-        self.C = np.eye(size=(N,N))
+        self.mu = np.zeros((N,))
+        self.C = np.eye(N)
         self.L = np.sqrt(self.C)
         self.theta_cached = None
 
@@ -218,18 +230,26 @@ def test_sampling_gauss1d():
     Sample a distribution by various methods.
     """
     # Let's just do a univariate Gaussian for now.
-    N = 10000
+    N, d = 1000, 2
+    theta0 = np.random.normal((d,))
     model = SimpleGaussian()
+    model = MultiGaussianDist(np.zeros(d), np.eye(d))
+    logpost = model.log_posterior
+    gradlogpost = grad(model.log_posterior)
     # proposal = MetropolisRandomWalk([[1]])
-    proposal = pCN([[1]], 0.1)
-    sampler = Sampler(model, proposal, 0.0)
+    # proposal = pCN([[1]], 0.1)
+    proposal = HMC(1.5, 3, gradlogpost)
+    # proposal = LookAheadHMC(1.5, 3, logpost, gradlogpost, beta=0.1)
+    sampler = Sampler(model, proposal, theta0)
     sampler.run(N)
     #sampler.print_chain_stats()
     # Plot the samples
     plt.subplot(2, 1, 1)
     x = np.linspace(-5, 5, 26)
     dx = np.mean(x[1:] - x[:-1])
-    plt.hist(sampler._chain_thetas, bins=26, range=(-5,5), color='b')
+    Xd = np.array(sampler._chain_thetas)
+    if len(Xd.shape) > 1:  Xd = Xd[:,0]
+    plt.hist(Xd, bins=26, range=(-5,5), color='b')
     plt.plot(x, N*dx*np.exp(-0.5*x**2)/np.sqrt(2*np.pi),
              color='r', ls='--', lw=2)
     plt.subplot(2, 1, 2)
