@@ -5,7 +5,8 @@ RS 2018/03/15:  Proposals for Riemann
 """
 
 import numpy as np
-from ..riemann import Proposal, ParameterError
+from ..sampling_errors import ParameterError
+from riemann import Proposal
 
 
 class MetropolisRandomWalk(Proposal):

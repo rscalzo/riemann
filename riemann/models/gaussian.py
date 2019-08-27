@@ -5,7 +5,7 @@ RS 2018/03/15:  Models for Riemann
 """
 
 import numpy as np
-from ..riemann import Model, ParameterError
+from riemann import Model, ParameterError
 
 
 def logsumexp(x, axis=None):

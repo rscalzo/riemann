@@ -9,7 +9,7 @@ Exercise 1:  implement and test infinity-MALA.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from riemann import Sampler, Proposal, Model
+from riemann import Model, Sampler, Proposal
 from riemann import ParameterError
 
 
