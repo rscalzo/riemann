@@ -3,6 +3,7 @@ Created by Hadi Afshar
 August 2019
 """
 from contribs.mice.gp.gp_utils import *
+from contribs.mice import mice_data
 
 
 def fetch_data(test_folds):
