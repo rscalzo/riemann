@@ -10,4 +10,4 @@
 from riemann.models.model import Model
 from riemann.samplers.sampler import Sampler
 from riemann.proposals.proposal import Proposal
-from riemann.sampling_errors import *
+from riemann.sampling_errors import ParameterError
