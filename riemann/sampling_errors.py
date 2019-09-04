@@ -7,9 +7,6 @@ This package supports CTDS's investigations into geometric MCMC, as in
 "information geometry", using a connection associated with the Fisher metric.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-
 
 class RiemannBaseError(Exception):
     """

@@ -169,8 +169,8 @@ class MixtureModel(Model):
         return theta
 
     def log_likelihood(self, theta):
-        logLij = np.array([m.logL(theta) for m in model_list])
+        logLij = np.array([m.logL(theta) for m in self.model_list])
         return logsumexp(logLij, axis=0)
 
     def log_prior(self, theta):
-        return np.sum([m.logP(theta) for m in model_list])
+        return np.sum([m.logP(theta) for m in self.model_list])

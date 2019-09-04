@@ -5,8 +5,7 @@ RS 2018/03/15:  Proposals for Riemann
 """
 
 import numpy as np
-from ..sampling_errors import ParameterError
-from riemann import Proposal
+from riemann import Proposal, ParameterError
 
 
 def leapfrog(p0, q0, N, epsilon, mgradU):

@@ -24,6 +24,7 @@ from __future__ import print_function
 
 import numpy as np
 
+
 class Sampler(object):
     """
     A class associated with sampling.  Given a Model and a Proposal,
