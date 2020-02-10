@@ -8,7 +8,6 @@ This package supports CTDS's investigations into geometric MCMC, as in
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 class RiemannBaseError(Exception):
