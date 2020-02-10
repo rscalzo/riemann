@@ -2,6 +2,7 @@
 .*.swp
 *~
 *.pyc
+
 # Directories and other files
 .DS_Store
 Resources
@@ -111,3 +112,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# PyCharm project files
+.idea/
+
