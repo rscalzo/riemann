@@ -3,13 +3,25 @@ from .rj_proposals import RJState
 
 
 class GenericMatchingProp:
-    def __init__(self, base_dim):
-        self.base_dim = base_dim
+    def __init__(self, dim):
+        if isinstance(dim, int):
+            self._base_dim = dim
+            self._matching_fn = self._match_base
+        if isinstance(dim, list):
+            self.dims = dim
+            self._matching_fn = self._match_list
+
+    def _match_base(self, state, new_k):
+        if new_k > state.idx:
+            return np.random.randn(abs(new_k - state.idx) * self._base_dim)
+
+    def _match_list(self, state, new_k):
+        dim_diff = self.dims[new_k-1] - self.dims[state.idx-1]
+        if dim_diff > 0:
+            return np.random.randn(dim_diff)
 
     def match(self, state, new_k):
-        if new_k > state.idx:
-            return np.random.randn(abs(new_k - state.idx) * self.base_dim)
-        return
+        return self._matching_fn(state, new_k)
 
     def logp(self, k, new_k, u):
         return -0.5 * (u * u).sum() - 0.5 * abs(new_k - k) * np.log(2 * np.pi)
