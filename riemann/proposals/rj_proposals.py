@@ -31,15 +31,13 @@ class JumpProposal:
         self.mapping = mapping
         self.matching_prop = matching_prop
 
-    def propose(self, state, new_k):
+    def propose(self, state, new_k):  # TODO: Allow for jumping between models with same dimensionality.
         k = state.idx
         u = self.matching_prop.match(state, new_k)
         if u is not None:  # moving to higher dimension
             new_state = self.mapping.forward(state, u, new_k)
-            logqratio = self.mapping.log_det(state, u, new_k) \
-                        - self.matching_prop.logp(k, new_k, u)
+            logqratio = self.mapping.log_det(state, u, new_k) - self.matching_prop.logp(k, new_k, u)
         else:  # moving to lower dimension
             new_state, u = self.mapping.backward(state, new_k)
-            logqratio = self.matching_prop.logp(k, new_k, u) \
-                        - self.mapping.log_det(new_state, u, k)
+            logqratio = self.matching_prop.logp(k, new_k, u) - self.mapping.log_det(new_state, u, k)
         return new_state, logqratio
