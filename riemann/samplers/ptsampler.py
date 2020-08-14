@@ -5,7 +5,7 @@ RS 2019/05/10:  Samplersfor Riemann
 """
 
 import numpy as np
-from ..riemann import Sampler, Model, ParameterError
+from riemann import Model, Sampler, ParameterError
 
 
 class TemperedModel(Model):

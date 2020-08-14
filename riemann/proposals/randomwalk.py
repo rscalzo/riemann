@@ -5,7 +5,7 @@ RS 2018/03/15:  Proposals for Riemann
 """
 
 import numpy as np
-from ..riemann import Proposal, ParameterError
+from riemann import Proposal, ParameterError
 
 
 class MetropolisRandomWalk(Proposal):
@@ -14,7 +14,7 @@ class MetropolisRandomWalk(Proposal):
     """
 
     def __init__(self, C):
-        self._L = np.linalg.cholesky(C)
+        self._L = np.linalg.cholesky(np.atleast_2d(C))
 
     def propose(self, theta):
         theta = np.atleast_1d(theta)
@@ -31,14 +31,17 @@ class AdaptiveMetropolisRandomWalk(MetropolisRandomWalk):
     chain history.
     """
 
-    def __init__(self, C0, t_adapt=1):
+    def __init__(self, C0, t_adapt=1, marginalize=False):
         """
         :param C0: initial covariance; np.array of shape (Npars, Npars)
         :param t_adapt: prior weight (in samples) to give covariance
             (or, analogously, a timescale for adaptation)
+        :param marginalize: option to adapt step sizes in each dimension
+            but not covariances
         """
         self.C0 = C0
         self.t_adapt = t_adapt
+        self.marginalize = marginalize
         # Internal state variables associated with adaptation
         self._L = np.linalg.cholesky(C0)
         self._S = 0.0
@@ -62,7 +65,15 @@ class AdaptiveMetropolisRandomWalk(MetropolisRandomWalk):
         if np.sqrt(n)**2 == n and n > 2:
             Cs = (self._SX2 - self._SX[:,None]*self._SX[None,:]/n)/(n-1)
             C = (n*Cs + self.t_adapt*self.C0)/(n + self.t_adapt)
-            self._L = np.linalg.cholesky(C)
+            # if the 'marginalize' option has been set, tune the step sizes
+            # in each direction but not the covariances -- this is useful
+            # for tuning random walks in posteriors with some curvature
+            if self.marginalize:
+                C = np.diag(np.diag(C))
+            # scaling exponent with dimension tuned to give reasonable
+            # acceptance rates for multi-D Gaussians in numbers of dimensions
+            # for which random walk doesn't totally suck
+            self._L = np.linalg.cholesky(C)/(C.shape[0])**0.2
 
 
 class pCN(Proposal):
