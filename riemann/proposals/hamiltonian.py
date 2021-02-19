@@ -59,6 +59,61 @@ class VanillaHMC(Proposal):
         # Return!
         return theta_new, logqratio
 
+def emulatorLeapfrog(p0, q0, N, epsilon, mgradU):
+    """
+    Leapfrog integration step
+    :param p0: initial momentum variables
+    :param q0: initial coordinate variables (thetas)
+    :param N: number of leapfrog steps to take
+    :paran eps: step size for HMC steps
+    :param mgradU: callable giving grad(log(posterior)) w/rt theta, theta_old
+    """
+    # Initial half-step in momentum
+    p = p0 + 0.5*epsilon * mgradU(q0, p0)
+    # Full step in coordinates
+    q = q0 + epsilon * p
+    # If more than one leapfrog step desired, alternate additional steps
+    # in p and q until desired trajectory length reached
+    for i in range(N-1):
+        p = p + epsilon * mgradU(q, p)
+        q = q + epsilon * p
+    # Final half-step in momentum, with reflection (for reversibility)
+    p = p + 0.5*epsilon * mgradU(q, p)
+    # Return
+    return p, q
+
+
+class EmulatorHMC(Proposal):
+    """
+    The Emulator Hamiltonian Monte Carlo proposal. Differences:
+        - the emulatorLeapfrog function asks the gradient function for two points, so that it can detect whether to continue refining the gradient
+        - it accepts set_gradlogpost so the sampler can provide it with the emulated gradient function
+    """
+
+    def __init__(self, eps, M):
+        """
+        :param eps: value of epsilon for leapfrog integration
+        :param M: number of leapfrog steps (integer >= 1)
+        :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
+        """
+        self.M = M
+        self.eps = eps
+
+    def set_gradlogpost(self, gradlogpost):
+        self._mgradU = gradlogpost
+
+    def propose(self, theta):
+        # Generate momenta
+        theta = np.atleast_1d(theta)
+        p_theta = np.random.normal(size=theta.shape)
+        # Integrate along the trajectory
+        p_theta_new, theta_new = emulatorLeapfrog(
+                p_theta, theta, self.M, self.eps, self._mgradU)
+        # Calculate difference in kinetic energy
+        logqratio = 0.5*(np.sum(p_theta_new**2) - np.sum(p_theta**2))
+        # Return!
+        return theta_new, logqratio
+
 
 class LookAheadHMC(Proposal):
     """

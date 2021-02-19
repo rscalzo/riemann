@@ -190,7 +190,7 @@ class MixtureModel(Model):
     A mixture model of one or more distributions.  The latent component
     memberships are marginalized out to make things easier.
     """
-    
+
     def __init__(self, model_list):
         self.model_list = model_list
 
