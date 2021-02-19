@@ -1,13 +1,13 @@
 #!/usr/env/python
-# Copyright 2019 The Centre for Translational Data Science (CTDS) 
+# Copyright 2019 The Centre for Translational Data Science (CTDS)
 # at the University of Sydney. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,7 +41,7 @@ class Sampler(object):
         self._chain_thetas = [ theta0 ]
         self._chain_logpost = [ model.log_posterior(theta0) ]
 
-    def run(self, Nsamples, Nburn=0, Nthin=1):
+    def run(self, Nsamples, Nburn=0, Nthin=1, progress_callable = None):
         """
         Run the Sampler.
         """
@@ -50,6 +50,8 @@ class Sampler(object):
         self._chain_logpost = self._chain_logpost[-1:]
         for i in range(Nsamples):
             self.sample()
+            if progress_callable != None:
+                progress_callable(i, Nsamples)
         self._chain_thetas = self._chain_thetas[Nburn::Nthin]
         self._chain_logpost = self._chain_logpost[Nburn::Nthin]
 
