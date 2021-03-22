@@ -31,7 +31,7 @@ class AdaptiveMetropolisRandomWalk(MetropolisRandomWalk):
     chain history.
     """
 
-    def __init__(self, C0, t_adapt=1, marginalize=False):
+    def __init__(self, C0, t_adapt=1, marginalize=False, smooth_adapt=False):
         """
         :param C0: initial covariance; np.array of shape (Npars, Npars)
         :param t_adapt: prior weight (in samples) to give covariance
@@ -42,6 +42,7 @@ class AdaptiveMetropolisRandomWalk(MetropolisRandomWalk):
         self.C0 = C0
         self.t_adapt = t_adapt
         self.marginalize = marginalize
+        self.smooth_adapt = smooth_adapt
         # Internal state variables associated with adaptation
         self._L = np.linalg.cholesky(C0)
         self._S = 0.0
@@ -64,7 +65,17 @@ class AdaptiveMetropolisRandomWalk(MetropolisRandomWalk):
         n = np.float(self._S)
         if np.sqrt(n)**2 == n and n > 2:
             Cs = (self._SX2 - self._SX[:,None]*self._SX[None,:]/n)/(n-1)
-            C = (n*Cs + self.t_adapt*self.C0)/(n + self.t_adapt)
+            if self.smooth_adapt:
+                # experimental version that hopefully averts catastrophic
+                # failure if the acceptance rate is very low for t < t_adapt
+                C = (n*Cs + self.t_adapt*self.C0)/(n + self.t_adapt)
+            else:
+                # strict Haario+ 2001 setting
+                if n < self.t_adapt:
+                    C = self.C0
+                else:
+                    Creg = np.mean(np.diag(self.C0))*np.eye(Cs.shape[0])
+                    C = Cs + 1e-12*Creg
             # if the 'marginalize' option has been set, tune the step sizes
             # in each direction but not the covariances -- this is useful
             # for tuning random walks in posteriors with some curvature

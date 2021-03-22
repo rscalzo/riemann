@@ -4,6 +4,10 @@
 Benchmark distributions for test suite or common examples
 """
 
+import numpy as np
+from riemann import Model
+from riemann.models.gaussian import MultiGaussianDist
+
 # 1-D unit Gaussian
 benchmark_gauss1d = MultiGaussianDist(0.0, 1.0)
 
@@ -31,7 +35,7 @@ class MixtureDist(Model):
         :param components: list of (weight, dist) tuples where weight is a
             float and dist is a Model instance describing a distribution
         """
-        self._mixweights, self._model_list = zip(components)
+        self._mixweights, self._model_list = zip(*components)
         self._mixweights = np.array(self._mixweights)/np.sum(self._mixweights)
         self._cumulwts = np.cumsum(self._mixweights)
 
