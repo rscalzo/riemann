@@ -10,12 +10,12 @@ from riemann import Proposal, ParameterError
 from .adaptive import AdaptScaleProposal, AdaptCovProposal
 
 
-def leapfrog(p0, q0, L, epsilon, mgradU, M=None, debug=False):
+def leapfrog(p0, q0, Nsteps, epsilon, mgradU, M=None, debug=False):
     """
     Leapfrog integration step
     :param p0: initial momentum variables; np.array of shape (d, )
     :param q0: initial coordinate variables (thetas) of shape (d, )
-    :param L: number (int) of leapfrog steps to take
+    :param Nsteps: number (int) of leapfrog steps to take
     :param eps: step size (float) for HMC steps
     :param mgradU: callable giving grad(log(posterior)) w/rt theta
     :param M: optional mass matrix, of shape (d, d)
@@ -31,7 +31,7 @@ def leapfrog(p0, q0, L, epsilon, mgradU, M=None, debug=False):
     qlist.append(q)
     # If more than one leapfrog step desired, alternate additional steps
     # in p and q until desired trajectory length reached
-    for i in range(L-1):
+    for i in range(Nsteps - 1):
         p = p + epsilon * mgradU(q)
         psc = np.linalg.solve(M, p) if scale else p
         q = q + epsilon * psc
@@ -57,15 +57,15 @@ class VanillaHMC(Proposal):
     A vanilla Hamiltonian Monte Carlo proposal.
     """
 
-    def __init__(self, eps, L, gradlogpost, M=None):
+    def __init__(self, eps, Nsteps, gradlogpost, M=None):
         """
         :param d: dimension of parameter space
         :param eps: value of epsilon for leapfrog integration
-        :param L: number of leapfrog steps (integer >= 1)
+        :param Nsteps: number of leapfrog steps (integer >= 1)
         :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
         :param M: optional mass matrix of shape (d, d)
         """
-        self.L = L
+        self.Nsteps = Nsteps
         self.eps = eps
         self._mgradU = gradlogpost
         if M is None:
@@ -81,7 +81,7 @@ class VanillaHMC(Proposal):
             p_theta = np.dot(self.chM, p_theta)
         # Integrate along the trajectory
         p_theta_new, theta_new = leapfrog(
-                p_theta, theta, self.L, self.eps, self._mgradU, self.M)
+                p_theta, theta, self.Nsteps, self.eps, self._mgradU, self.M)
         if self.chM is not None:
             p_theta = np.linalg.solve(self.chM, p_theta)
             p_theta_new = np.linalg.solve(self.chM, p_theta_new)
@@ -93,13 +93,44 @@ class VanillaHMC(Proposal):
 
 class AdaptScaleHMC(AdaptScaleProposal, VanillaHMC):
 
-    def __init__(self, eps, L, gradlogpost, M=None):
-        AdaptScaleProposal.__init__(0.75)
-        VanillaHMC.__init__(eps, L, gradlogpost, M=M)
+    def __init__(self, eps, Nsteps, gradlogpost, M=None):
+        AdaptScaleProposal.__init__(self, 0.75)
+        VanillaHMC.__init__(self, eps, Nsteps, gradlogpost, M=M)
         self.eps0 = self.eps
 
     def propose(self, theta):
         self.eps = self.scale * self.eps0
+        return VanillaHMC.propose(self, theta)
+
+
+class AdaptCovHMC(AdaptCovProposal, VanillaHMC):
+
+    def __init__(self, eps, Nsteps, gradlogpost, M0,
+                 t_adapt=1, marginalize=False, smooth_adapt=False):
+        VanillaHMC.__init__(self, eps, Nsteps, gradlogpost, M=M0)
+        AdaptCovProposal.__init__(self, M0,
+                                  t_adapt=t_adapt,
+                                  marginalize=marginalize,
+                                  smooth_adapt=smooth_adapt)
+
+    def propose(self, theta):
+        self.M, self.chM = self.C, self.L
+        return VanillaHMC.propose(self, theta)
+
+
+class AdaptScaleCovHMC(AdaptScaleHMC, AdaptCovHMC):
+
+    def __init__(self, eps, Nsteps, gradlogpost, M0,
+                 t_adapt=1, marginalize=False, smooth_adapt=False):
+        AdaptScaleHMC.__init__(self, eps, Nsteps, gradlogpost)
+        AdaptCovHMC.__init__(self, eps, Nsteps, gradlogpost, M0,
+                             t_adapt=t_adapt,
+                             marginalize=marginalize,
+                             smooth_adapt=smooth_adapt)
+
+    def propose(self, theta):
+        self.eps = self.scale * self.eps0
+        self.M, self.chM = self.C, self.L
         return VanillaHMC.propose(self, theta)
 
 
