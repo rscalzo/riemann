@@ -85,9 +85,11 @@ class MultiGaussianModel(Model):
                                  .format(data.shape, self.mu.shape))
         
         self.Npars = N + N*(N+1)/2      # total number of parameters
-        self._theta_cached = None       # for lazy evaluation 
+        self._theta_cached = None       # for lazy evaluation
+        self.data = data
 
     def pack(self):
+        # TODO this is horribly wrong given unpack() below
         theta = np.array(self.mu)
         for i, Crow in enumerate(self.C):
             theta = np.concatenate([theta, Crow[i:]])
@@ -103,6 +105,7 @@ class MultiGaussianModel(Model):
         # in the hopes of improving numerical stability
         self.mu = theta[:self.Ndim]
         k = self.Ndim
+        self.L = np.zeros((k, k))
         for i, Lrow in enumerate(self.L):
             # self.C[i,i:] = self.C[i:,i] = theta[k:k+(self.Ndim-i)]
             self.L[i:,i] = theta[k:k+(self.Ndim-i)]
@@ -112,7 +115,7 @@ class MultiGaussianModel(Model):
         self.logNd2pi = self.Ndim*np.log(2*np.pi)
         self._theta_cached = theta
 
-    def log_likelihood(self, theta):
+    def log_likelihood_pointwise(self, theta):
         self.unpack(theta)
         # Pointwise log likelihood should have shape (Ndata, Npars)
         y = self.data - self.mu[np.newaxis,:]
@@ -122,7 +125,10 @@ class MultiGaussianModel(Model):
         u = np.linalg.solve(self.L, y.T).T
         logL_ptwise = -0.5*(np.array([np.dot(ui, ui) for ui in u]) +
                             self.logNd2pi + self.logdetC)
-        return np.sum(logL_ptwise)
+        return logL_ptwise
+
+    def log_likelihood(self, theta):
+        return np.sum(self.log_likelihood_pointwise(theta))
 
     def log_prior(self, theta):
         # Put some Wishart prior stuff in here later, when I have a brain
