@@ -49,6 +49,16 @@ class MixtureDist(Model):
             [m.log_likelihood(theta) for m in self._model_list])
         return np.log(np.sum(self._mixweights * np.exp(mix_logLs)))
 
+    def log_prior(self, theta):
+        """
+        Log priorof the Model.
+        :param theta:  parameter vector as np.array of shape (Npars, )
+        :return logL:  log prior
+        """
+        mix_logPs = np.array(
+            [m.log_prior(theta) for m in self._model_list])
+        return np.log(np.sum(self._mixweights * np.exp(mix_logPs)))
+
     def draw(self, Ndraws=1):
         """
         Draw from the mixture distribution.
