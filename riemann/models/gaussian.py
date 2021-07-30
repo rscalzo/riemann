@@ -51,6 +51,12 @@ class MultiGaussianDist(Model):
         u = np.linalg.solve(self.L, y)
         return -0.5*(np.dot(u, u) + len(y)*np.log(2*np.pi) + self.logdetC)
 
+    def grad_log_likelihood(self, theta):
+        y = theta - self.mu
+        u = np.linalg.solve(self.L, y)
+        v = np.linalg.solve(self.L.T, u)
+        return -v
+
     def draw(self, Ndraws=1):
         """
         Draw from the Gaussian with these parameters.
