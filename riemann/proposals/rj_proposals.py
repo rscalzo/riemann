@@ -1,4 +1,5 @@
 from .. import riemann
+from abc import ABC, abstractmethod
 
 
 class RJState:
@@ -8,25 +9,56 @@ class RJState:
         self.idx = idx
 
 
+class RJMapping(ABC):
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def forward(self, state, u, k_high):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def backward(self, state, k_low):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def log_det(self, state, u, k_high):
+        raise NotImplementedError()
+
+
+class RJMatching(ABC):
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def match(self, state, new_k):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def logp(self, k, new_k, u):
+        raise NotImplementedError()
+
+
 class RJProposal(riemann.Proposal):
-    def __init__(self, move_prop, jump_prop, within_prop):
+    def __init__(self, move_prop, jump_prop, within_props):
         super().__init__()
         self.move_prop = move_prop
-        self.within_prop = within_prop
+        self.within_props = within_props
         self.jump_prop = jump_prop
 
     def propose(self, state, **kwargs):
         new_k = self.move_prop.move(state)
         k = state.idx
         if new_k == k:
-            new_state, logqratio = self.within_prop.propose(state)
+            new_param, logqratio = self.within_props[k-1].propose(state.param)
+            new_state = RJState(new_param, state.idx)
         else:
             new_state, logqratio = self.jump_prop.propose(state, new_k)
         return new_state, logqratio + self.move_prop.logp(k, new_k)
 
 
 class JumpProposal:
-    def __init__(self, mapping, matching_prop):
+    def __init__(self, mapping: RJMapping, matching_prop: RJMatching):
         super().__init__()
         self.mapping = mapping
         self.matching_prop = matching_prop
