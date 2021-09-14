@@ -43,6 +43,7 @@ class VanillaHMC(Proposal):
         :param M: number of leapfrog steps (integer >= 1)
         :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
         """
+        super().__init__()
         self.M = M
         self.eps = eps
         self._mgradU = gradlogpost
@@ -75,6 +76,7 @@ class LookAheadHMC(Proposal):
         :param logpost: callable giving log(posterior) w/rt theta
         :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
         """
+        super().__init__()
         self.M = M
         self.eps = eps
         self._mU = logpost
