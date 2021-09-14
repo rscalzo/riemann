@@ -65,6 +65,7 @@ class VanillaHMC(Proposal):
         :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
         :param M: optional mass matrix of shape (d, d)
         """
+        super().__init__()
         self.Nsteps = Nsteps
         self.eps = eps
         self._mgradU = gradlogpost
@@ -149,6 +150,7 @@ class LookAheadHMC(Proposal):
         :param logpost: callable giving log(posterior) w/rt theta
         :param gradlogpost: callable giving grad(log(posterior)) w/rt theta
         """
+        super().__init__()
         self.M = M
         self.eps = eps
         self._mU = logpost
