@@ -1,9 +1,10 @@
 import numpy as np
-from .rj_proposals import RJState
+from .rj_proposals import RJState, RJMapping, RJMatching
 
 
-class GenericMatchingProp:
+class GenericMatchingProp(RJMatching):
     def __init__(self, dim):
+        super().__init__()
         if isinstance(dim, int):
             self._base_dim = dim
             self._matching_fn = self._match_base
@@ -43,8 +44,9 @@ class MoveProp:
         return np.log(self.move_p[new_k - 1])
 
 
-class GenericMapping:
+class GenericMapping(RJMapping):
     def __init__(self, means, cov_factors):
+        super().__init__()
         self.means = means
         self.cov_factors = cov_factors
 
